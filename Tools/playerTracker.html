@@ -310,27 +310,26 @@
   }
 
   async function fetchCharacters() {
-    loadMappings();
-    if (characters.length === 0) {
-      try {
-        const response = await fetch(charactersUrl);
-        const data = await response.json();
-        characters = data.map(m => {
-          if (!m.characters && m.character) {
-            m.characters = [m.character];
-            delete m.character;
-          } else if (!m.characters) {
-            m.characters = [];
-          }
-          return m;
-        });
-        saveMappings();
-      } catch (e) {
-        console.error('Error loading character file:', e);
+  try {
+    const response = await fetch(charactersUrl);
+    if (!response.ok) throw new Error('File not found or network issue');
+    const data = await response.json();
+    characters = data.map(m => {
+      if (!m.characters && m.character) {
+        m.characters = [m.character];
+        delete m.character;
+      } else if (!m.characters) {
+        m.characters = [];
       }
-    }
+      return m;
+    });
+    saveMappings(); // Save to localStorage for future use
+  } catch (e) {
+    console.warn('Could not fetch characters.json, falling back to localStorage.');
+    loadMappings(); // fallback if file is missing or network fails
   }
-
+}
+	
   async function updatePresenceTracker() {
     await Promise.all([fetchOnlinePlayers(), fetchCharacters()]);
     loadSuspects();
