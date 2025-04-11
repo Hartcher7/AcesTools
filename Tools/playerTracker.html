@@ -309,24 +309,26 @@
     }
   }
 
-  async function fetchCharacters() {
-  try {
-    const response = await fetch(charactersUrl);
-    if (!response.ok) throw new Error('File not found or network issue');
-    const data = await response.json();
-    characters = data.map(m => {
-      if (!m.characters && m.character) {
-        m.characters = [m.character];
-        delete m.character;
-      } else if (!m.characters) {
-        m.characters = [];
-      }
-      return m;
-    });
-    saveMappings(); // Save to localStorage for future use
-  } catch (e) {
-    console.warn('Could not fetch characters.json, falling back to localStorage.');
-    loadMappings(); // fallback if file is missing or network fails
+async function fetchCharacters() {
+  loadMappings(); // first try localStorage
+  if (characters.length === 0) {
+    try {
+      const response = await fetch(charactersUrl);
+      if (!response.ok) throw new Error('File not found or network issue');
+      const data = await response.json();
+      characters = data.map(m => {
+        if (!m.characters && m.character) {
+          m.characters = [m.character];
+          delete m.character;
+        } else if (!m.characters) {
+          m.characters = [];
+        }
+        return m;
+      });
+      saveMappings(); // Save to localStorage for future use
+    } catch (e) {
+      console.warn('Could not fetch characters.json and no localStorage fallback.');
+    }
   }
 }
 	
