@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gang Presence Tracker</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    h1, h2, h3 {
+      color: #ffffff;
+    }
+    .top-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .button {
+      background-color: #3a3a3a;
+      color: #e0e0e0;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-top: 10px;
+      margin-right: 5px;
+    }
+    .button:hover {
+      background-color: #555;
+    }
+    #searchContainer {
+      margin-top: 10px;
+    }
+    #searchInput {
+      width: 100%;
+      padding: 5px;
+      border: 1px solid #444;
+      border-radius: 3px;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+    }
+    #searchResults {
+      background-color: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 3px;
+      margin-top: 5px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .search-item {
+      padding: 5px;
+      cursor: pointer;
+    }
+    .search-item:hover {
+      background-color: #333;
+    }
+    #users-container {
+      display: flex;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    #mapped-users { flex: 2; }
+    #unmapped-users { flex: 1; }
+    .card {
+      background-color: #1e1e1e;
+      padding: 10px 15px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .card-header h3 {
+      margin: 0;
+      font-size: 1.2em;
+      white-space: pre-wrap;
+    }
+    .details {
+      margin-top: 8px;
+      display: none;
+    }
+    .editor-container {
+      position: fixed;
+      right: 0;
+      top: 0;
+      width: 35%;
+      height: 100%;
+      background-color: #121212;
+      padding: 20px;
+      border-left: 2px solid #333;
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+    }
+    .editor-panel {
+      background-color: #1e1e1e;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    .editor-panel label {
+      display: block;
+      margin-top: 10px;
+    }
+    .char-row {
+      display: flex;
+      align-items: center;
+      margin-top: 5px;
+    }
+    .char-row input {
+      margin-right: 10px;
+      padding: 3px;
+      flex: 1;
+    }
+    .char-row .remove-btn {
+      background-color: #a00;
+      border: none;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      color: #fff;
+    }
+    #suspectCases {
+      margin-top: 20px;
+      display: none;
+    }
+    #suspectList .card {
+      background-color: #222;
+    }
+  </style>
+</head>
+<body>
+  <h1>Gang Presence Tracker</h1>
+  <div class="top-bar">
+    <button id="refreshButton" class="button">Refresh</button>
+    <button id="searchButton" class="button">Search Player</button>
+    <button id="toggleSuspects" class="button">View Suspect Cases</button>
+  </div>
+
+  <div id="searchContainer">
+    <label for="searchInput">Search Character Name:</label>
+    <input type="text" id="searchInput" placeholder="Type a character name..." />
+    <div id="searchResults"></div>
+  </div>
+
+  <div id="suspectContainer">
+    <label for="suspectInput">Character Seen Online:</label>
+    <input type="text" id="suspectInput" placeholder="Enter known character name..." />
+    <button class="button" id="tagSuspectBtn">Tag Suspects</button>
+  </div>
+
+  <div id="suspectCases">
+    <h2>Active Suspect Cases</h2>
+    <div id="suspectList"></div>
+  </div>
+
+  <div id="users-container">
+    <div id="mapped-users"><h2>Mapped Users</h2></div>
+    <div id="unmapped-users"><h2>Unmapped Users</h2></div>
+  </div>
+
+  <!-- Editor Panel -->
+  <div class="editor-container" id="editorContainer">
+    <h2>Edit Mapping</h2>
+    <div id="editorPanel" class="editor-panel">
+      <p><strong>Username:</strong> <span id="editUserName"></span></p>
+      <div id="charList"></div>
+      <button id="addCharBtn" class="button">Add Character</button>
+      <div style="margin-top:15px;">
+        <button id="saveBtn" class="button">Save</button>
+        <button id="cancelBtn" class="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+<script>
+  const STORAGE_KEY = 'playerMappings';
+  const SUSPECT_KEY = 'suspectTracker';
+  const playersUrl = 'https://thingproxy.freeboard.io/fetch/http://fivem.greenleafrp.com:30120/players.json';
+  const charactersUrl = 'data/characters.json';
+
+  let characters = [];
+  let suspects = {};
+  let onlinePlayers = [];
+  let currentEditingMapping = null;
+
+  // === Local Storage Load/Save ===
+  function loadMappings() {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    characters = stored ? JSON.parse(stored) : [];
+  }
+
+  function saveMappings() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(characters));
+  }
+
+  function loadSuspects() {
+    const raw = localStorage.getItem(SUSPECT_KEY);
+    suspects = raw ? JSON.parse(raw) : {};
+  }
+
+  function saveSuspects() {
+    localStorage.setItem(SUSPECT_KEY, JSON.stringify(suspects));
+  }
+
+  function getCharacterMapping(username) {
+    return characters.find(m => m.name.toLowerCase() === username.toLowerCase());
+  }
+
+  function updateLastSeen(mapping) {
+    mapping.lastSeen = new Date().toLocaleTimeString();
+  }
+
+  function tagCurrentUnmappedAsSuspect(characterName) {
+    const name = characterName.trim();
+    if (!name) return;
+    const currentUnmapped = onlinePlayers.map(p => p.name).filter(u => !getCharacterMapping(u));
+    if (!suspects[name]) {
+      suspects[name] = {
+        suspects: currentUnmapped,
+        history: [currentUnmapped],
+        lastTaggedOnline: new Date().toISOString()
+      };
+    } else {
+      const previous = suspects[name].suspects;
+      const narrowed = currentUnmapped.filter(u => previous.includes(u));
+      suspects[name].suspects = narrowed;
+      suspects[name].history.push(currentUnmapped);
+      suspects[name].lastTaggedOnline = new Date().toISOString();
+    }
+    saveSuspects();
+    renderData();
+    renderSuspectCases();
+  }
+
+  function getSuspectedForUser(username) {
+    return Object.entries(suspects)
+      .filter(([_, data]) => data.suspects.includes(username))
+      .map(([character]) => character);
+  }
+
+  function confirmSuspectMatch(username, characterName) {
+    characters.push({
+      name: username,
+      characters: [{ name: characterName, affiliation: 'unknown' }],
+      lastSeen: new Date().toLocaleTimeString()
+    });
+    delete suspects[characterName];
+    saveMappings();
+    saveSuspects();
+    renderData();
+    renderSuspectCases();
+  }
+
+  function renderSuspectCases() {
+    const container = document.getElementById('suspectList');
+    container.innerHTML = '';
+    const entries = Object.entries(suspects);
+    if (entries.length === 0) {
+      container.innerHTML = '<p>No active suspect cases.</p>';
+      return;
+    }
+    entries.forEach(([character, data]) => {
+      const div = document.createElement('div');
+      div.classList.add('card');
+      div.innerHTML = `
+        <strong>${character}</strong><br>
+        Suspects: ${data.suspects.join(', ')}<br>
+        Last Tagged: ${new Date(data.lastTaggedOnline).toLocaleString()}<br>
+        <button class="button" onclick="clearSuspectCase('${character}')">Clear Case</button>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function clearSuspectCase(character) {
+    delete suspects[character];
+    saveSuspects();
+    renderData();
+    renderSuspectCases();
+  }
+
+  document.getElementById('tagSuspectBtn').addEventListener('click', () => {
+    const input = document.getElementById('suspectInput').value;
+    tagCurrentUnmappedAsSuspect(input);
+    document.getElementById('suspectInput').value = '';
+  });
+
+  document.getElementById('toggleSuspects').addEventListener('click', () => {
+    const section = document.getElementById('suspectCases');
+    section.style.display = section.style.display === 'none' ? 'block' : 'none';
+  });
+  async function fetchOnlinePlayers() {
+    try {
+      const response = await fetch(playersUrl);
+      onlinePlayers = await response.json();
+    } catch (error) {
+      console.error('Error fetching online players:', error);
+      onlinePlayers = [];
+    }
+  }
+
+  async function fetchCharacters() {
+    loadMappings();
+    if (characters.length === 0) {
+      try {
+        const response = await fetch(charactersUrl);
+        const data = await response.json();
+        characters = data.map(m => {
+          if (!m.characters && m.character) {
+            m.characters = [m.character];
+            delete m.character;
+          } else if (!m.characters) {
+            m.characters = [];
+          }
+          return m;
+        });
+        saveMappings();
+      } catch (e) {
+        console.error('Error loading character file:', e);
+      }
+    }
+  }
+
+  async function updatePresenceTracker() {
+    await Promise.all([fetchOnlinePlayers(), fetchCharacters()]);
+    loadSuspects();
+    renderData();
+    renderSuspectCases();
+  }
+
+  function renderData() {
+    const mappedContainer = document.getElementById('mapped-users');
+    const unmappedContainer = document.getElementById('unmapped-users');
+    mappedContainer.innerHTML = '<h2>Mapped Users</h2>';
+    unmappedContainer.innerHTML = '<h2>Unmapped Users</h2>';
+
+    const mappedPlayers = onlinePlayers.filter(player => getCharacterMapping(player.name));
+    let groups = {};
+    mappedPlayers.forEach(player => {
+      let mapping = getCharacterMapping(player.name);
+      updateLastSeen(mapping);
+      let affil = mapping.characters[0]?.affiliation || 'unknown';
+      if (!groups[affil]) groups[affil] = [];
+      groups[affil].push(player);
+    });
+
+    Object.keys(groups).sort().forEach(affil => {
+      const header = document.createElement('h3');
+      header.textContent = `Affiliation: ${affil}`;
+      mappedContainer.appendChild(header);
+      const grid = document.createElement('div');
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+      grid.style.gap = '10px';
+      groups[affil].forEach(player => {
+        const mapping = getCharacterMapping(player.name);
+        const card = document.createElement('div');
+        card.className = 'card';
+        const header = document.createElement('div');
+        header.className = 'card-header';
+        const name = document.createElement('h3');
+        name.textContent = mapping.characters.map(c => `${c.name} || ${c.affiliation || 'unknown'}`).join('\n');
+        name.style.whiteSpace = 'pre-wrap';
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'button';
+        toggleBtn.textContent = 'Show Details';
+        header.appendChild(name);
+        header.appendChild(toggleBtn);
+        const details = document.createElement('div');
+        details.className = 'details';
+		details.innerHTML = `
+		  <p><strong>Username:</strong> ${mapping.name}</p>
+		  <p><strong>Last Seen:</strong> ${mapping.lastSeen}</p>
+		  ${mapping.characters.map(c => c.notes ? `<p><strong>${c.name} Notes:</strong><br>${c.notes}</p>` : '').join('')}
+		  <button class="button" onclick="openEditor('${mapping.name}')">Edit</button>
+		`;
+        toggleBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          details.style.display = details.style.display === 'none' ? 'block' : 'none';
+          toggleBtn.textContent = details.style.display === 'block' ? 'Hide Details' : 'Show Details';
+        });
+        card.appendChild(header);
+        card.appendChild(details);
+        grid.appendChild(card);
+      });
+      mappedContainer.appendChild(grid);
+    });
+
+    const unmappedGrid = document.createElement('div');
+    unmappedGrid.style.display = 'grid';
+    unmappedGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    unmappedGrid.style.gap = '10px';
+
+    const unmappedPlayers = onlinePlayers.filter(player => !getCharacterMapping(player.name)).sort((a, b) => a.name.localeCompare(b.name));
+    unmappedPlayers.forEach(player => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<h3>${player.name}</h3>`;
+      const suspected = getSuspectedForUser(player.name);
+      suspected.forEach(char => {
+        const pool = suspects[char]?.suspects || [];
+        if (pool.length === 1 && pool[0] === player.name) {
+          card.innerHTML += `<p><em>Suspected:</em> ${char}<br><button class="button" onclick="confirmSuspectMatch('${player.name}', '${char}')">Confirm Match</button></p>`;
+        } else {
+          card.innerHTML += `<p><em>Suspected:</em> ${char}</p>`;
+        }
+      });
+      card.innerHTML += `<button class="button" onclick="openEditor('${player.name}', true)">Add Mapping</button>`;
+      unmappedGrid.appendChild(card);
+    });
+    unmappedContainer.appendChild(unmappedGrid);
+  }
+
+  function openEditor(username, isNew = false) {
+    currentEditingMapping = getCharacterMapping(username);
+    if (!currentEditingMapping && isNew) {
+      currentEditingMapping = { name: username, characters: [], lastSeen: new Date().toLocaleTimeString() };
+      characters.push(currentEditingMapping);
+      saveMappings();
+    }
+    document.getElementById('editUserName').textContent = username;
+    populateEditorCharacters();
+    document.getElementById('editorContainer').style.display = 'flex';
+  }
+
+  function populateEditorCharacters() {
+    const charList = document.getElementById('charList');
+    charList.innerHTML = '';
+    currentEditingMapping.characters.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'char-row';
+      row.innerHTML = `
+		<input type="text" class="char-name" value="${c.name}" placeholder="Character Name" />
+		<input type="text" class="char-affil" value="${c.affiliation || 'unknown'}" placeholder="Affiliation" />
+		<textarea class="char-notes" placeholder="Notes...">${c.notes || ''}</textarea>
+		<button class="remove-btn" onclick="removeChar(${i})">Remove</button>
+	`;
+      charList.appendChild(row);
+    });
+  }
+
+  function removeChar(index) {
+    currentEditingMapping.characters.splice(index, 1);
+    populateEditorCharacters();
+  }
+
+  document.getElementById('addCharBtn').addEventListener('click', () => {
+    currentEditingMapping.characters.push({ name: '', affiliation: 'unknown' });
+    populateEditorCharacters();
+  });
+
+	document.getElementById('saveBtn').addEventListener('click', () => {
+		const names = document.querySelectorAll('.char-name');
+		const affils = document.querySelectorAll('.char-affil');
+		const notes = document.querySelectorAll('.char-notes');
+		const newChars = [];
+	
+	names.forEach((input, i) => {
+		const name = input.value.trim();
+		const affil = affils[i].value.trim() || 'unknown';
+		const note = notes[i].value.trim();
+		if (name) newChars.push({ name, affiliation: affil, notes: note });
+	});
+
+  if (newChars.length === 0) {
+    characters = characters.filter(m => m.name !== currentEditingMapping.name);
+  } else {
+    currentEditingMapping.characters = newChars;
+  }
+  saveMappings();
+  document.getElementById('editorContainer').style.display = 'none';
+  renderData();
+});
+
+  document.getElementById('cancelBtn').addEventListener('click', () => {
+    document.getElementById('editorContainer').style.display = 'none';
+  });
+
+  document.getElementById('searchInput').addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    const results = document.getElementById('searchResults');
+    results.innerHTML = '';
+    if (!q) return;
+    characters.forEach(mapping => {
+      mapping.characters.forEach(char => {
+        if (char.name.toLowerCase().includes(q)) {
+          const div = document.createElement('div');
+          div.className = 'search-item';
+          div.textContent = `${char.name} || ${char.affiliation || 'unknown'} (User: ${mapping.name})`;
+          div.addEventListener('click', () => {
+            alert(`${char.name} (user: ${mapping.name}) was last online: ${mapping.lastSeen || 'Unknown'}`);
+            results.innerHTML = '';
+          });
+          results.appendChild(div);
+        }
+      });
+    });
+  });
+
+  document.getElementById('refreshButton').addEventListener('click', updatePresenceTracker);
+
+  updatePresenceTracker();
+  setInterval(updatePresenceTracker, 120000); // 2 minutes
+</script>
+</body>
+</html>

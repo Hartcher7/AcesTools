@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Aces Locations</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    /* Base dark mode and Aces branding */
+    body {
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      font-family: sans-serif;
+      background-color: #000; /* Black base (tertiary) */
+      color: #fff; /* White primary text */
+    }
+    /* Sidebar styling */
+    #sidebar {
+      width: 300px;
+      overflow-y: auto;
+      padding: 10px;
+      border-right: 1px solid #c00; /* Red secondary accent */
+      box-sizing: border-box;
+      background-color: #111; /* Slightly lighter black for contrast */
+    }
+    #sidebar h3, #sidebar h4 {
+      margin-top: 0;
+      color: #fff;
+    }
+    #sidebar button {
+      margin-top: 5px;
+      padding: 5px;
+      cursor: pointer;
+      background-color: #c00; /* Red accent */
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+    }
+    #sidebar button:hover {
+      opacity: 0.9;
+    }
+    #sidebar input[type="text"],
+    #sidebar input[type="number"] {
+      width: 100%;
+      margin-bottom: 5px;
+      box-sizing: border-box;
+      padding: 4px;
+      background-color: #222;
+      color: #fff;
+      border: 1px solid #c00;
+      border-radius: 3px;
+    }
+    .location-item {
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #333;
+      padding-bottom: 4px;
+    }
+    .location-item span {
+      flex: 1;
+      margin-left: 5px;
+    }
+    .location-item button {
+      background-color: #c00;
+      border: none;
+      color: #fff;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    /* Map container */
+    #map {
+      flex: 1;
+      position: relative;
+      border-left: 1px solid #c00;
+    }
+    /* Coordinate display styling */
+    #coordinateDisplay {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 5px 10px;
+      border: 1px solid #c00;
+      border-radius: 4px;
+      font-size: 14px;
+      pointer-events: none;
+      z-index: 1000;
+      color: #fff;
+    }
+    /* Styling for file input (hidden) */
+    #importFileInput {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h3>Aces Locations</h3>
+    <button id="checkAll">Check All</button>
+    <button id="uncheckAll">Uncheck All</button>
+    <button id="exportCSV">Export CSV</button>
+    <button id="importCSV">Import CSV</button>
+    <input type="file" id="importFileInput" accept=".csv" />
+    <ul id="annotationList"></ul>
+    <hr>
+    <h4>Add New Location</h4>
+    <input type="text" id="newLabel" placeholder="Label" />
+    <input type="number" id="newX" placeholder="X Coordinate" />
+    <input type="number" id="newY" placeholder="Y Coordinate" />
+    <button id="addAnnotation">Add Location</button>
+  </div>
+  <div id="map">
+    <!-- Coordinate display element -->
+    <div id="coordinateDisplay">Coordinates: N/A</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map with a simple CRS for the image overlay.
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -5
+    });
+
+    // Dimensions of the high-res image
+    const imageWidth = 8192, imageHeight = 8192;
+    const bounds = [[0, 0], [imageHeight, imageWidth]];
+    // Use the online image URL
+    const imageUrl = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_ATLUS_8192x8192.png';
+
+    // Add the image overlay to the map
+    L.imageOverlay(imageUrl, bounds).addTo(map);
+    map.setView([1972, 3540], -2);
+
+    let annotations = [];
+    let markers = {};
+
+    // Local Storage key for persistence
+    const STORAGE_KEY = 'acesAnnotations';
+
+    // Load annotations from local storage
+    function loadAnnotations() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          annotations = JSON.parse(stored);
+        } catch (e) {
+          console.error('Error parsing annotations from storage:', e);
+          annotations = [];
+        }
+      } else {
+        // Initialize with a sample location "Fudge Lane" if nothing is stored.
+        annotations = [{ id: 1, label: 'Fudge Lane', x: 4585, y: 1630, visible: true }];
+      }
+    }
+
+    // Save annotations to local storage
+    function saveAnnotations() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(annotations));
+    }
+
+    // Function to add a marker for a given location
+    function addMarker(annotation) {
+      const marker = L.marker([annotation.y, annotation.x]).bindPopup(`<strong>${annotation.label}</strong>`);
+      markers[annotation.id] = marker;
+      if (annotation.visible) {
+        marker.addTo(map);
+      }
+    }
+
+    // Initialize annotations on page load
+    loadAnnotations();
+    annotations.forEach(annotation => addMarker(annotation));
+
+    // Refresh the sidebar list
+    function refreshAnnotationList() {
+      const list = document.getElementById('annotationList');
+      list.innerHTML = '';
+      annotations.forEach(annotation => {
+        const li = document.createElement('li');
+        li.className = 'location-item';
+        li.innerHTML = `
+          <input type="checkbox" data-id="${annotation.id}" ${annotation.visible ? 'checked' : ''}>
+          <span>${annotation.label}</span>
+          <button data-id="${annotation.id}" class="remove-btn">Remove</button>
+        `;
+        list.appendChild(li);
+      });
+    }
+    refreshAnnotationList();
+
+    // Update marker visibility on the map based on annotation.visible
+    function updateMarkers() {
+      annotations.forEach(annotation => {
+        const marker = markers[annotation.id];
+        if (marker) {
+          if (annotation.visible) {
+            if (!map.hasLayer(marker)) marker.addTo(map);
+          } else {
+            map.removeLayer(marker);
+          }
+        }
+      });
+    }
+
+    // Event listener for checkbox changes in the location list
+    document.getElementById('annotationList').addEventListener('change', function(e) {
+      if (e.target.type === 'checkbox') {
+        const id = Number(e.target.getAttribute('data-id'));
+        const annotation = annotations.find(a => a.id === id);
+        if (annotation) {
+          annotation.visible = e.target.checked;
+          updateMarkers();
+          saveAnnotations();
+        }
+      }
+    });
+
+    // Event listener for remove buttons in the location list
+    document.getElementById('annotationList').addEventListener('click', function(e) {
+      if (e.target.classList.contains('remove-btn')) {
+        const id = Number(e.target.getAttribute('data-id'));
+        if (markers[id]) {
+          map.removeLayer(markers[id]);
+          delete markers[id];
+        }
+        annotations = annotations.filter(a => a.id !== id);
+        refreshAnnotationList();
+        saveAnnotations();
+      }
+    });
+
+    // "Check All" and "Uncheck All" functionality
+    document.getElementById('checkAll').addEventListener('click', () => {
+      annotations.forEach(annotation => annotation.visible = true);
+      refreshAnnotationList();
+      updateMarkers();
+      saveAnnotations();
+    });
+    document.getElementById('uncheckAll').addEventListener('click', () => {
+      annotations.forEach(annotation => annotation.visible = false);
+      refreshAnnotationList();
+      updateMarkers();
+      saveAnnotations();
+    });
+
+    // Add new location functionality
+    document.getElementById('addAnnotation').addEventListener('click', () => {
+      const label = document.getElementById('newLabel').value.trim();
+      const x = parseFloat(document.getElementById('newX').value);
+      const y = parseFloat(document.getElementById('newY').value);
+      if (!label || isNaN(x) || isNaN(y)) {
+        alert('Please provide a valid label and coordinates.');
+        return;
+      }
+      const newAnnotation = { id: Date.now(), label, x, y, visible: true };
+      annotations.push(newAnnotation);
+      addMarker(newAnnotation);
+      refreshAnnotationList();
+      saveAnnotations();
+      document.getElementById('newLabel').value = '';
+      document.getElementById('newX').value = '';
+      document.getElementById('newY').value = '';
+    });
+
+    // Export CSV functionality
+    document.getElementById('exportCSV').addEventListener('click', () => {
+      let csvContent = 'id,label,x,y,visible\n';
+      annotations.forEach(a => {
+        csvContent += `${a.id},"${a.label}",${a.x},${a.y},${a.visible ? 1 : 0}\n`;
+      });
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "aces_locations.csv");
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    // Import CSV functionality
+    document.getElementById('importCSV').addEventListener('click', () => {
+      document.getElementById('importFileInput').click();
+    });
+    document.getElementById('importFileInput').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const contents = e.target.result;
+        const rows = contents.split('\n').filter(row => row.trim() !== '');
+        if (rows.length < 2) return;
+        annotations = [];
+        Object.keys(markers).forEach(id => {
+          map.removeLayer(markers[id]);
+          delete markers[id];
+        });
+        for (let i = 1; i < rows.length; i++) {
+          const cols = rows[i].split(',');
+          if (cols.length < 5) continue;
+          let label = cols[1].replace(/"/g, '');
+          const newAnnotation = {
+            id: Number(cols[0]),
+            label: label,
+            x: parseFloat(cols[2]),
+            y: parseFloat(cols[3]),
+            visible: Number(cols[4]) === 1
+          };
+          annotations.push(newAnnotation);
+        }
+        saveAnnotations();
+        annotations.forEach(annotation => addMarker(annotation));
+        refreshAnnotationList();
+        updateMarkers();
+      };
+      reader.readAsText(file);
+    });
+
+    // Live coordinate display that stays on top
+    const coordDisplay = document.getElementById('coordinateDisplay');
+    map.on('mousemove', function(e) {
+      const x = e.latlng.lng.toFixed(0);
+      const y = e.latlng.lat.toFixed(0);
+      coordDisplay.innerHTML = `Coordinates: ${x}, ${y}`;
+    });
+  </script>
+</body>
+</html>

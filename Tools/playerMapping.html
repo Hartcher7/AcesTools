@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Player Mapping Management</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      color: #ffffff;
+    }
+    .button {
+      background-color: #3a3a3a;
+      color: #e0e0e0;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    .button:hover {
+      background-color: #555;
+    }
+    .mapping-block {
+      background-color: #1e1e1e;
+      margin-bottom: 15px;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .char-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 5px;
+    }
+    .char-row input {
+      flex: 1;
+      padding: 5px;
+      background-color: #2a2a2a;
+      border: 1px solid #444;
+      color: #e0e0e0;
+    }
+    .remove-char, .remove-user {
+      background-color: #a00;
+      color: white;
+      border: none;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .remove-char:hover, .remove-user:hover {
+      background-color: #d00;
+    }
+    .section {
+      max-width: 800px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="section">
+    <h1>Player Mapping Management</h1>
+    <a href="playerTracker.html" class="button">← Back to Tracker</a>
+    <button class="button" onclick="addNewUser()">Add New User</button>
+    <div id="mappingList"></div>
+  </div>
+
+  <script>
+    const charactersUrl = 'data/characters.json';
+    let mappings = [];
+
+    // Load mappings from file
+    async function fetchCharacters() {
+      try {
+        const response = await fetch(charactersUrl);
+        if (!response.ok) throw new Error('Failed to load mappings.');
+        const data = await response.json();
+        mappings = Array.isArray(data) ? data.map(m => {
+          if (!m.characters && m.character) {
+            m.characters = [m.character];
+            delete m.character;
+          }
+          m.characters = m.characters || [];
+          return m;
+        }) : [];
+        renderMappings();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('mappingList').innerHTML = '<p>Error loading mappings.</p>';
+      }
+    }
+
+    function renderMappings() {
+      const container = document.getElementById('mappingList');
+      container.innerHTML = '';
+      mappings.forEach((mapping, userIndex) => {
+        const div = document.createElement('div');
+        div.classList.add('mapping-block');
+
+        div.innerHTML = `
+          <label><strong>Username:</strong></label>
+          <input type="text" value="${mapping.name}" onchange="updateUsername(${userIndex}, this.value)">
+          <button class="remove-user" onclick="removeUser(${userIndex})">Remove User</button>
+          <div id="charList-${userIndex}"></div>
+          <button class="button" onclick="addCharacter(${userIndex})">+ Add Character</button>
+        `;
+
+        container.appendChild(div);
+        renderCharacterList(userIndex);
+      });
+    }
+
+    function updateUsername(index, value) {
+      mappings[index].name = value.trim();
+    }
+
+    function renderCharacterList(userIndex) {
+      const charListDiv = document.getElementById(`charList-${userIndex}`);
+      charListDiv.innerHTML = '';
+      mappings[userIndex].characters.forEach((ch, charIndex) => {
+        const row = document.createElement('div');
+        row.classList.add('char-row');
+        row.innerHTML = `
+          <input type="text" placeholder="Character Name" value="${ch.name}" onchange="updateCharacter(${userIndex}, ${charIndex}, 'name', this.value)">
+          <input type="text" placeholder="Affiliation" value="${ch.affiliation || 'unknown'}" onchange="updateCharacter(${userIndex}, ${charIndex}, 'affiliation', this.value)">
+          <button class="remove-char" onclick="removeCharacter(${userIndex}, ${charIndex})">×</button>
+        `;
+        charListDiv.appendChild(row);
+      });
+    }
+
+    function updateCharacter(userIndex, charIndex, field, value) {
+      mappings[userIndex].characters[charIndex][field] = value.trim();
+    }
+
+    function addCharacter(userIndex) {
+      mappings[userIndex].characters.push({ name: '', affiliation: 'unknown' });
+      renderCharacterList(userIndex);
+    }
+
+    function removeCharacter(userIndex, charIndex) {
+      mappings[userIndex].characters.splice(charIndex, 1);
+      renderCharacterList(userIndex);
+    }
+
+    function addNewUser() {
+      mappings.push({
+        name: '',
+        characters: []
+      });
+      renderMappings();
+    }
+
+    function removeUser(index) {
+      mappings.splice(index, 1);
+      renderMappings();
+    }
+
+    // Load on page load
+    fetchCharacters();
+  </script>
+</body>
+</html>
