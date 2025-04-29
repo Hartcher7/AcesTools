@@ -185,7 +185,7 @@
 <script>
   const STORAGE_KEY = 'playerMappings';
   const SUSPECT_KEY = 'suspectTracker';
-  const playersUrl = 'https://api.allorigins.win/raw?url=http://fivem.greenleafrp.com:30120/players.json';
+  const playersUrl = 'https://corsproxy.io/?http://fivem.greenleafrp.com:30120/players.json';
   const charactersUrl = 'Data/characters.json';
 
   let characters = [];
@@ -300,14 +300,17 @@
     section.style.display = section.style.display === 'none' ? 'block' : 'none';
   });
   async function fetchOnlinePlayers() {
-    try {
-      const response = await fetch(playersUrl);
-      onlinePlayers = await response.json();
-    } catch (error) {
-      console.error('Error fetching online players:', error);
-      onlinePlayers = [];
-    }
+  try {
+    const response = await fetch(playersUrl);
+    if (!response.ok) throw new Error('Failed to fetch players');
+    const data = await response.json();
+    onlinePlayers = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Error fetching online players:', error);
+    onlinePlayers = [];
   }
+}
+
 
 async function fetchCharacters() {
   loadMappings(); // first try localStorage
