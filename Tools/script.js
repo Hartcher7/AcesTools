@@ -151,10 +151,17 @@ async function fetchCharacters() {
 }
 
 async function updatePresenceTracker() {
-  await Promise.all([fetchOnlinePlayers(), fetchCharacters()]);
-  loadSuspects();
-  renderData();
-  renderSuspectCases();
+  document.getElementById('loading').classList.remove('hidden');
+  try {
+    await Promise.all([fetchOnlinePlayers(), fetchCharacters()]);
+    loadSuspects();
+    renderData();
+    renderSuspectCases();
+  } catch (err) {
+    console.error('Error during update:', err);
+  } finally {
+    document.getElementById('loading').classList.add('hidden');
+  }
 }
 
 function renderData() {
