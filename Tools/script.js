@@ -326,7 +326,8 @@ document.getElementById('searchInput').addEventListener('input', function () {
   });
 });
 
-document.getElementById('refreshButton').addEventListener('click', updatePresenceTracker);
-
-updatePresenceTracker();
-setInterval(updatePresenceTracker, 120000); // 2 minutes
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('refreshButton').addEventListener('click', updatePresenceTracker);
+  updatePresenceTracker();
+  setInterval(updatePresenceTracker, 120000); // 2 minutes
+});
