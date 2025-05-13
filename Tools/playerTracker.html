@@ -6,9 +6,14 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="loading" class="hidden">Loading tracker data...</div>
+  <div class="loading" id="loadingOverlay">Loading Player Data...</div>
   <h1>Gang Presence Tracker</h1>
+
   <div class="top-bar">
+    <select id="serverSelect" class="button">
+      <option value="greenleaf">Green Leaf</option>
+      <option value="horizon">Horizon</option>
+    </select>
     <button id="refreshButton" class="button">Refresh</button>
     <button id="searchButton" class="button">Search Player</button>
     <button id="toggleSuspects" class="button">View Suspect Cases</button>
@@ -36,7 +41,6 @@
     <div id="unmapped-users"><h2>Unmapped Users</h2></div>
   </div>
 
-  <!-- Editor Panel -->
   <div class="editor-container" id="editorContainer">
     <h2>Edit Mapping</h2>
     <div id="editorPanel" class="editor-panel">
@@ -49,6 +53,7 @@
       </div>
     </div>
   </div>
-<script src="script.js"></script>
+
+  <script src="script.js"></script>
 </body>
 </html>
