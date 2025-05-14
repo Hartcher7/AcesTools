@@ -164,12 +164,12 @@ async function fetchCharacters() {
 }
 
 async function updatePresenceTracker() {
-  document.getElementById('loading').classList.remove('hidden');
+  document.getElementById('loadingOverlay').classList.remove('hidden');
   await Promise.all([fetchOnlinePlayers(), fetchCharacters()]);
   loadSuspects();
   renderData();
   renderSuspectCases();
-  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.add('hidden');
 }
 
 function renderData() {
