@@ -6,7 +6,7 @@ function getCharactersUrl() {
 
 const SERVER_URLS = {
   greenleaf: 'https://cors-anywhere-s2bh.onrender.com/http://fivem.greenleafrp.com:30120/players.json',
-  horizon: 'http://play.horizon-rp.com:30120/players.json'
+  horizon:   'https://cors-anywhere-s2bh.onrender.com/http://play.horizon-rp.com:30120/players.json'
 };
 
 let selectedServer = 'greenleaf';
