@@ -1,6 +1,8 @@
 const BASE_STORAGE_KEY = 'playerMappings';
 const BASE_SUSPECT_KEY = 'suspectTracker';
-const charactersUrl = 'Data/characters.json';
+function getCharactersUrl() {
+  return `Data/${selectedServer}_characters.json`;
+}
 
 const SERVER_URLS = {
   greenleaf: 'https://cors-anywhere-s2bh.onrender.com/http://fivem.greenleafrp.com:30120/players.json',
@@ -149,9 +151,10 @@ async function fetchCharacters() {
   loadMappings();
   if (characters.length === 0) {
     try {
-      const response = await fetch(charactersUrl);
+      const response = await fetch(getCharactersUrl());
       if (!response.ok) throw new Error('File not found or network issue');
-      const data = await response.json();
+      const text = await response.text();
+      const data = text.trim() ? JSON.parse(text) : [];
       characters = data.map(m => {
         if (!m.characters && m.character) {
           m.characters = [m.character];
