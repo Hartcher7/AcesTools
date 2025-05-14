@@ -1,18 +1,22 @@
-const STORAGE_KEY = 'playerMappings';
-const SUSPECT_KEY = 'suspectTracker';
+const BASE_STORAGE_KEY = 'playerMappings';
+const BASE_SUSPECT_KEY = 'suspectTracker';
 const charactersUrl = 'Data/characters.json';
 
 const SERVER_URLS = {
   greenleaf: 'https://cors-anywhere-s2bh.onrender.com/http://fivem.greenleafrp.com:30120/players.json',
-  horizon: 'http://play.horizon-rp.com:30120/players.json' // No proxy
+  horizon: 'http://play.horizon-rp.com:30120/players.json'
 };
-
 
 let selectedServer = 'greenleaf';
 let characters = [];
 let suspects = {};
 let onlinePlayers = [];
 let currentEditingMapping = null;
+
+// ✅ These utility functions can follow directly after the constants
+function getStorageKey(baseKey) {
+  return `${baseKey}_${selectedServer}`;
+}
 
 function getPlayersUrl() {
   return SERVER_URLS[selectedServer];
