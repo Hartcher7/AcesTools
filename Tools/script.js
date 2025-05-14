@@ -1,14 +1,22 @@
 const STORAGE_KEY = 'playerMappings';
 const SUSPECT_KEY = 'suspectTracker';
-const playersUrl = 'https://cors-anywhere-s2bh.onrender.com/http://fivem.greenleafrp.com:30120/players.json';
 const charactersUrl = 'Data/characters.json';
 
+const SERVER_URLS = {
+  greenleaf: 'https://cors-anywhere-s2bh.onrender.com/http://fivem.greenleafrp.com:30120/players.json',
+  horizon: 'https://cors-anywhere-s2bh.onrender.com/http://play.horizon-rp.com:30120/players.json'
+};
+
+let selectedServer = 'greenleaf';
 let characters = [];
 let suspects = {};
 let onlinePlayers = [];
 let currentEditingMapping = null;
 
-// === Local Storage Load/Save ===
+function getPlayersUrl() {
+  return SERVER_URLS[selectedServer];
+}
+
 function loadMappings() {
   const stored = localStorage.getItem(STORAGE_KEY);
   characters = stored ? JSON.parse(stored) : [];
@@ -115,9 +123,14 @@ document.getElementById('toggleSuspects').addEventListener('click', () => {
   section.style.display = section.style.display === 'none' ? 'block' : 'none';
 });
 
+document.getElementById('serverSelect').addEventListener('change', (e) => {
+  selectedServer = e.target.value;
+  updatePresenceTracker();
+});
+
 async function fetchOnlinePlayers() {
   try {
-    const response = await fetch(playersUrl);
+    const response = await fetch(getPlayersUrl());
     if (!response.ok) throw new Error('Failed to fetch players');
     const data = await response.json();
     onlinePlayers = Array.isArray(data) ? data : [];
@@ -128,7 +141,7 @@ async function fetchOnlinePlayers() {
 }
 
 async function fetchCharacters() {
-  loadMappings(); // first try localStorage
+  loadMappings();
   if (characters.length === 0) {
     try {
       const response = await fetch(charactersUrl);
@@ -143,7 +156,7 @@ async function fetchCharacters() {
         }
         return m;
       });
-      saveMappings(); // Save to localStorage for future use
+      saveMappings();
     } catch (e) {
       console.warn('Could not fetch characters.json and no localStorage fallback.');
     }
@@ -151,17 +164,13 @@ async function fetchCharacters() {
 }
 
 async function updatePresenceTracker() {
-  document.getElementById('loading').classList.remove('hidden'); // Show loading
-
+  document.getElementById('loading').classList.remove('hidden');
   await Promise.all([fetchOnlinePlayers(), fetchCharacters()]);
-
   loadSuspects();
   renderData();
   renderSuspectCases();
-
-  document.getElementById('loading').classList.add('hidden'); // Hide loading
+  document.getElementById('loading').classList.add('hidden');
 }
-
 
 function renderData() {
   const mappedContainer = document.getElementById('mapped-users');
