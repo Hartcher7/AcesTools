@@ -148,10 +148,12 @@ async function fetchOnlinePlayers() {
 }
 
 async function fetchCharacters() {
-  loadMappings();
+  loadMappings(); // Load from localStorage first
   if (characters.length === 0) {
+    const characterFile = getCharactersUrl();
+    console.log('Fetching character file:', characterFile); // Helpful debug log
     try {
-      const response = await fetch(getCharactersUrl());
+      const response = await fetch(characterFile);
       if (!response.ok) throw new Error('File not found or network issue');
       const text = await response.text();
       const data = text.trim() ? JSON.parse(text) : [];
@@ -164,9 +166,9 @@ async function fetchCharacters() {
         }
         return m;
       });
-      saveMappings();
+      saveMappings(); // Store into localStorage with server-specific key
     } catch (e) {
-      console.warn('Could not fetch characters.json and no localStorage fallback.');
+      console.warn(`Could not fetch ${characterFile} and no localStorage fallback.`);
     }
   }
 }
