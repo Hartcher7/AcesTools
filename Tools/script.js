@@ -23,7 +23,7 @@ function getPlayersUrl() {
 }
 
 function loadMappings() {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = localStorage.getItem(getStorageKey(BASE_STORAGE_KEY));
   characters = stored ? JSON.parse(stored) : [];
 }
 
@@ -32,7 +32,7 @@ function saveMappings() {
 }
 
 function loadSuspects() {
-  const raw = localStorage.getItem(SUSPECT_KEY);
+  const raw = localStorage.getItem(getStorageKey(BASE_SUSPECT_KEY));
   suspects = raw ? JSON.parse(raw) : {};
 }
 
