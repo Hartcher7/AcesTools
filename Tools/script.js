@@ -30,7 +30,7 @@ function loadMappings() {
 }
 
 function saveMappings() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(characters));
+  localStorage.setItem(getStorageKey(BASE_STORAGE_KEY), JSON.stringify(characters));
 }
 
 function loadSuspects() {
@@ -39,7 +39,7 @@ function loadSuspects() {
 }
 
 function saveSuspects() {
-  localStorage.setItem(SUSPECT_KEY, JSON.stringify(suspects));
+  localStorage.setItem(getStorageKey(BASE_SUSPECT_KEY), JSON.stringify(suspects));
 }
 
 function getCharacterMapping(username) {
