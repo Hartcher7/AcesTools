@@ -137,7 +137,11 @@ document.getElementById('serverSelect').addEventListener('change', (e) => {
 
 async function fetchOnlinePlayers() {
   try {
-    const response = await fetch(getPlayersUrl());
+    const response = await fetch(getPlayersUrl(), {
+      headers: {
+        'x-requested-with': 'XMLHttpRequest'
+      }
+    });
     if (!response.ok) throw new Error('Failed to fetch players');
     const data = await response.json();
     onlinePlayers = Array.isArray(data) ? data : [];
@@ -146,6 +150,7 @@ async function fetchOnlinePlayers() {
     onlinePlayers = [];
   }
 }
+
 
 async function fetchCharacters() {
   loadMappings(); // Load from localStorage first
